@@ -1,0 +1,48 @@
+{
+  "departamento": "AREQUIPA",
+  "distrito_principal": "Chichas, Condesuyos",
+  "incendio": {
+    "focos": 66,
+    "inicio": "2026-10-17",
+    "fin": "2026-10-18",
+    "frp_total_mw": 648.1,
+    "lat": -15.4847,
+    "lon": -72.9835
+  },
+  "imagen_previa": {
+    "fecha": "2026-10-13",
+    "escena": "S2B_MSIL2A_20261013T150719_R082_T18LYH_20261013T201523",
+    "nubes_zona_%": 0.0,
+    "nubes_escena_%": 2.6
+  },
+  "imagen_posterior": {
+    "fecha": "2026-10-20",
+    "escena": "S2A_MSIL2A_20261020T150931_R082_T18LYH_20261020T222456",
+    "nubes_zona_%": 1.7,
+    "nubes_escena_%": 11.4
+  },
+  "zona_km2": 123.1,
+  "pixeles_validos_%": 98.3,
+  "hectareas": {
+    "dNBR ≥ 0,27 (toda la zona)": 215.6,
+    "dNBR ≥ 0,27 conectado a focos": 198.9,
+    "dNBR ≥ 0,10 (toda la zona)": 1504.4,
+    "dNBR ≥ 0,10 conectado a focos (principal)": 1422.0,
+    "RdNBR ≥ 69 conectado a focos": 2013.2
+  },
+  "hectareas_por_clase_sembrado": {
+    "Baja": 1206.4,
+    "Moderada-baja": 215.1,
+    "Moderada-alta": 0.5,
+    "Alta": 0.0
+  },
+  "umbral_quemado": 0.1,
+  "estimacion_principal_ha": 1422.0,
+  "nbr_previo_mediano_quemado": -0.099,
+  "bbox_lonlat": [
+    -73.0404,
+    -15.5462,
+    -72.9455,
+    -15.4383
+  ]
+}

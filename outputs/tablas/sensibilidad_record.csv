@@ -1,0 +1,26 @@
+departamento,record_ene_corte,record_jul_corte,record_oct_corte,record_frp,rango_ene_corte,rango_jul_corte,rango_oct_corte,n_criterios_record
+AREQUIPA,True,True,True,True,1,1,1,4
+LIMA,True,True,True,True,1,1,1,4
+TACNA,False,True,True,False,2,1,1,2
+ANCASH,False,False,True,False,2,2,1,1
+APURIMAC,False,False,True,False,2,2,1,1
+MOQUEGUA,False,False,True,False,2,2,1,1
+HUANCAVELICA,False,False,True,False,3,3,1,1
+AYACUCHO,False,False,True,False,4,4,1,1
+CUSCO,False,False,True,False,8,8,1,1
+JUNIN,False,False,True,False,9,9,1,1
+ICA,False,False,False,False,2,2,3,0
+CAJAMARCA,False,False,False,False,3,3,2,0
+PUNO,False,False,False,False,5,5,2,0
+TUMBES,False,False,False,False,6,11,12,0
+LA LIBERTAD,False,False,False,False,7,7,2,0
+AMAZONAS,False,False,False,False,8,9,2,0
+PIURA,False,False,False,False,9,14,11,0
+LAMBAYEQUE,False,False,False,False,12,15,14,0
+LORETO,False,False,False,False,13,13,5,0
+UCAYALI,False,False,False,False,13,12,3,0
+SAN MARTIN,False,False,False,False,14,13,3,0
+CALLAO,False,False,False,False,15,5,2,0
+HUANUCO,False,False,False,False,15,14,2,0
+MADRE DE DIOS,False,False,False,False,15,15,12,0
+PASCO,False,False,False,False,15,15,6,0

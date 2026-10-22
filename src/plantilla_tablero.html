@@ -1,0 +1,562 @@
+<title>¿Año récord de incendios?</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: boletín de monitoreo — respuesta arriba, cifras clave, mapa + ficha del departamento,
+   ranking, y debajo la evidencia raster (densidad, estacionalidad, dNBR) y el método. */
+:root {
+  --paper: #f2f3ee;
+  --panel: #fbfbf8;
+  --ink: #171a17;
+  --ink-2: #4b524c;
+  --muted: #7d847c;
+  --rule: #d8dcd2;
+  --fire: #cf3b28;
+  --hist: #2867bd;
+  --bar: #c4c8bd;
+  --bar-max: #8d9388;
+  --div-n2: #1c5cab;
+  --div-n1: #8fbbee;
+  --div-0: #e7e8e1;
+  --div-p1: #f0a194;
+  --div-p2: #a8251a;
+  --ok-bg: #e4ece4;
+  --rec-bg: #f8dfd9;
+  --display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --body: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #111311; --panel: #191c19; --ink: #edefe8; --ink-2: #bcc2b8; --muted: #8b9288;
+    --rule: #2c312c; --fire: #f0634c; --hist: #5b9be8; --bar: #4a4f49; --bar-max: #7d847a;
+    --div-n2: #4f95ea; --div-n1: #2c4f7c; --div-0: #2c302c; --div-p1: #7d382f; --div-p2: #f36a52;
+    --ok-bg: #223024; --rec-bg: #3d1f1a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #111311; --panel: #191c19; --ink: #edefe8; --ink-2: #bcc2b8; --muted: #8b9288;
+  --rule: #2c312c; --fire: #f0634c; --hist: #5b9be8; --bar: #4a4f49; --bar-max: #7d847a;
+  --div-n2: #4f95ea; --div-n1: #2c4f7c; --div-0: #2c302c; --div-p1: #7d382f; --div-p2: #f36a52;
+  --ok-bg: #223024; --rec-bg: #3d1f1a; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--body); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.hoja { max-width: 1180px; margin: 0 auto; padding-block: 28px 56px; display: grid; gap: 40px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(30px, 5vw, 50px); font-stretch: 78%; font-weight: 750; line-height: 1.02; letter-spacing: -0.01em; }
+h2 { font-size: 24px; font-stretch: 82%; font-weight: 700; line-height: 1.15; }
+h3 { font-size: 16px; font-weight: 650; }
+p { margin: 0; }
+.eti { font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.mono { font-family: var(--mono); }
+.num { font-variant-numeric: tabular-nums; }
+a { color: var(--hist); }
+a:focus-visible, button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--hist); outline-offset: 2px; }
+
+/* cabecera */
+.cabeza { display: grid; gap: 14px; padding-bottom: 26px; border-bottom: 1px solid var(--rule); }
+.lede { font-size: 18px; max-width: 64ch; color: var(--ink-2); }
+.lede strong { color: var(--ink); }
+.sello { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+
+/* cifras */
+.cifras { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+.cifra { background: var(--panel); padding: 16px 18px 18px; display: grid; gap: 6px; align-content: start; }
+.cifra .valor { font-family: var(--display); font-size: 40px; font-stretch: 80%; font-weight: 700; line-height: 1; }
+.cifra .valor small { font-size: 18px; font-weight: 600; color: var(--ink-2); }
+.cifra p { font-size: 13.5px; color: var(--ink-2); }
+.pill { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11.5px; font-weight: 500; padding: 2px 8px 2px 6px; border-radius: 3px; width: fit-content; }
+.pill.rec { background: var(--rec-bg); color: var(--ink); }
+.pill.rec::before { content: "▲"; color: var(--fire); font-size: 9px; }
+.pill.no { background: var(--ok-bg); color: var(--ink); }
+.pill.no::before { content: "●"; color: var(--muted); font-size: 9px; }
+.pill.chico { background: transparent; border: 1px solid var(--rule); color: var(--ink-2); }
+
+/* controles */
+.barra { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; background: var(--panel); }
+.seg button { font: 500 13px var(--body); color: var(--ink-2); background: transparent; border: 0; padding: 7px 12px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--rule); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.seg button:hover:not([aria-pressed="true"]) { background: var(--div-0); }
+
+/* mapa + ficha */
+.tablero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+.mapa-caja { position: relative; background: var(--panel); border: 1px solid var(--rule); padding: 12px; }
+#mapa { width: 100%; height: auto; display: block; max-height: 760px; }
+#mapa path { stroke: var(--panel); stroke-width: 0.8; cursor: pointer; transition: opacity .15s; }
+#mapa path.record { stroke: var(--ink); stroke-width: 2.2; }
+#mapa path.sel { stroke: var(--hist); stroke-width: 3; }
+#mapa path:hover { opacity: .82; }
+#mapa text { font: 600 9px var(--body); fill: var(--ink); pointer-events: none; paint-order: stroke; stroke: var(--panel); stroke-width: 2.4px; stroke-linejoin: round; }
+.leyenda { display: grid; gap: 6px; margin-top: 8px; font-size: 12px; color: var(--ink-2); }
+.rampa { height: 10px; border-radius: 2px; }
+.rampa-ticks { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.claves { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.clave { display: inline-flex; align-items: center; gap: 6px; }
+.clave i { display: inline-block; width: 14px; height: 10px; border: 2px solid var(--ink); }
+.clave i.rayas { border: 1px solid var(--muted); background: repeating-linear-gradient(45deg, var(--muted) 0 1px, transparent 1px 4px); }
+
+.ficha { display: grid; gap: 16px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); }
+.ficha-cab { display: grid; gap: 6px; }
+.ficha-cab h2 { font-size: 30px; }
+.ficha .frase { font-size: 15.5px; color: var(--ink-2); max-width: 52ch; }
+.ficha .frase strong { color: var(--ink); }
+#barras { width: 100%; height: auto; display: block; background: var(--panel); border: 1px solid var(--rule); }
+#barras text { font: 10.5px var(--mono); fill: var(--muted); }
+#barras .lbl { fill: var(--ink); font-weight: 500; }
+.datos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+.datos div { background: var(--panel); padding: 10px 12px; display: grid; gap: 2px; }
+.datos b { font-family: var(--display); font-size: 22px; font-stretch: 85%; font-weight: 650; }
+.datos span { font-size: 12px; color: var(--muted); }
+
+/* tabla */
+.tabla-caja { overflow-x: auto; border: 1px solid var(--rule); background: var(--panel); }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th, td { padding: 8px 12px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--rule); }
+th:first-child, td:first-child { text-align: left; }
+th { font: 500 11.5px var(--mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); cursor: pointer; user-select: none; position: sticky; top: 0; background: var(--panel); }
+th[aria-sort="descending"]::after { content: " ↓"; }
+th[aria-sort="ascending"]::after { content: " ↑"; }
+td { font-variant-numeric: tabular-nums; }
+tbody tr { cursor: pointer; }
+tbody tr:hover { background: var(--div-0); }
+tbody tr.sel { box-shadow: inset 3px 0 0 var(--hist); }
+.mini { display: inline-block; width: 64px; height: 8px; background: var(--div-0); position: relative; vertical-align: middle; margin-left: 8px; border-radius: 2px; }
+.mini i { position: absolute; top: 0; bottom: 0; left: 50%; border-radius: 2px; }
+
+/* hallazgos y evidencia */
+.hallazgos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; counter-reset: h; }
+.hallazgo { display: grid; gap: 8px; align-content: start; padding-top: 14px; border-top: 3px solid var(--ink); }
+.hallazgo .cifra-h { font-family: var(--display); font-size: 34px; font-stretch: 80%; font-weight: 700; line-height: 1; }
+.hallazgo p { font-size: 14.5px; color: var(--ink-2); }
+.seccion { display: grid; gap: 16px; }
+.seccion > p { max-width: 70ch; color: var(--ink-2); }
+.dos { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+figure { margin: 0; display: grid; gap: 8px; }
+figure img { width: 100%; height: auto; display: block; border: 1px solid var(--rule); background: #fcfcfb; }
+figcaption { font-size: 12.5px; color: var(--muted); max-width: 80ch; }
+.caso { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; }
+.ficha-tec { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; font-size: 13.5px; margin: 0; }
+.ficha-tec dt { color: var(--muted); }
+.ficha-tec dd { margin: 0; overflow-wrap: anywhere; }
+.texto { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+.texto ul { margin: 0; padding-left: 18px; display: grid; gap: 8px; font-size: 14px; color: var(--ink-2); }
+.texto li strong { color: var(--ink); }
+.pie { font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--rule); padding-top: 14px; display: grid; gap: 4px; }
+
+#tip { position: fixed; z-index: 20; pointer-events: none; background: var(--ink); color: var(--paper); font-size: 12.5px; line-height: 1.4; padding: 7px 10px; border-radius: 3px; max-width: 260px; }
+#tip b { font-weight: 650; }
+
+@media (max-width: 920px) {
+  .tablero, .dos, .caso { grid-template-columns: minmax(0, 1fr); }
+  .ficha { position: static; }
+  .cifras { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hallazgos, .texto { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 460px) {
+  .cifras { grid-template-columns: minmax(0, 1fr); }
+  .datos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="hoja">
+  <header class="cabeza">
+    <span class="eti">Incendios en el Perú · pregunta E · corte <span id="corte"></span></span>
+    <h1>¿Es 2026 un año récord de incendios en el Perú?</h1>
+    <p class="lede" id="lede"></p>
+    <div class="sello eti">
+      <span>Focos VIIRS S-NPP 375 m</span><span>NASA FIRMS 2012–2025 · INPE 2026</span><span>Sentinel-2 L2A · dNBR</span><span id="generado"></span>
+    </div>
+  </header>
+
+  <section class="cifras" id="cifras" aria-label="Cifras clave"></section>
+
+  <section class="seccion" aria-labelledby="t-mapa">
+    <div class="barra">
+      <h2 id="t-mapa" style="margin-right:auto">Cada departamento contra su propia historia</h2>
+      <div class="seg" role="group" aria-label="Ventana de comparación" id="seg-ventana"></div>
+      <div class="seg" role="group" aria-label="Medida del mapa" id="seg-medida">
+        <button type="button" data-m="razon" aria-pressed="true">Razón vs. promedio</button>
+        <button type="button" data-m="dens" aria-pressed="false">Focos por 1 000 km²</button>
+      </div>
+    </div>
+    <div class="tablero">
+      <div class="mapa-caja">
+        <svg id="mapa" role="img" aria-label="Mapa del Perú por departamento"></svg>
+        <div class="leyenda">
+          <div class="rampa" id="rampa"></div>
+          <div class="rampa-ticks" id="rampa-ticks"></div>
+          <div class="claves">
+            <span class="clave"><i></i> récord: 2026 supera el máximo 2012–2025</span>
+            <span class="clave"><i class="rayas"></i> menos de 30 focos al año</span>
+          </div>
+        </div>
+      </div>
+      <aside class="ficha" id="ficha" aria-live="polite">
+        <div class="ficha-cab">
+          <span class="eti" id="f-eti"></span>
+          <h2 id="f-nombre"></h2>
+          <span id="f-pill"></span>
+        </div>
+        <p class="frase" id="f-frase"></p>
+        <svg id="barras" viewBox="0 0 520 230" role="img" aria-label="Focos por año del departamento"></svg>
+        <div class="datos" id="f-datos"></div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="seccion" aria-labelledby="t-rank">
+    <h2 id="t-rank">Ranking de departamentos</h2>
+    <p>Ordene por cualquier columna; al elegir una fila se actualiza la ficha. «Puesto» es la posición de 2026 entre los 15 años (1 = el más alto). «Criterios» cuenta en cuántas de las cuatro medidas (año a la fecha, temporada jul–oct, octubre y energía radiativa FRP) 2026 es récord.</p>
+    <div class="tabla-caja">
+      <table id="tabla">
+        <thead><tr>
+          <th data-k="nombre" scope="col">Departamento</th>
+          <th data-k="f26" scope="col">Focos 2026</th>
+          <th data-k="prom" scope="col">Prom. 2012–25</th>
+          <th data-k="max" scope="col">Máx. previo</th>
+          <th data-k="razon" scope="col" aria-sort="descending">Razón</th>
+          <th data-k="rango" scope="col">Puesto</th>
+          <th data-k="crit" scope="col">Criterios</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="seccion" aria-labelledby="t-hall">
+    <h2 id="t-hall">Tres hallazgos</h2>
+    <div class="hallazgos" id="hallazgos"></div>
+  </section>
+
+  <section class="seccion" aria-labelledby="t-raster">
+    <h2 id="t-raster">Dónde y cuándo está el exceso</h2>
+    <div class="dos">
+      <figure>
+        <img src="__IMG_ANOMALIA__" alt="Mapa raster de la anomalía de focos 2026 en celdas de 0,1 grados">
+        <figcaption>Raster de 0,1° (~11 km): focos 2026 menos el promedio 2012–2025 por celda, 1 ene–20 oct. Rojo es exceso y azul es déficit. Sumado por departamento con <span class="mono">zonal_stats</span> reproduce el conteo directo de puntos con −0,6 % de diferencia total (celdas de borde).</figcaption>
+      </figure>
+      <figure>
+        <img src="__IMG_ESTACIONALIDAD__" alt="Focos por mes, 2026 frente al rango 2012-2025">
+        <figcaption>2026 corrió por debajo de lo normal hasta septiembre; en los primeros 20 días de octubre ya supera el promedio de un octubre completo. El récord de 2026 es tardío.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="seccion" aria-labelledby="t-caso">
+    <h2 id="t-caso">Del foco a la hectárea: el incendio de <span id="c-lugar"></span></h2>
+    <p>Un foco de calor no mide superficie. En el departamento con récord y más focos se agruparon los focos (≤ 1 km y ≤ 48 h = un incendio), se tomó el más grande con un par de imágenes Sentinel-2 limpias y se calculó NBR = (B8A − B12) / (B8A + B12) y dNBR = NBR<sub>antes</sub> − NBR<sub>después</sub>, con máscara de nubes SCL.</p>
+    <figure>
+      <img src="__IMG_DNBR__" alt="Falso color antes y después del incendio y mapa de severidad dNBR">
+      <figcaption>Falso color SWIR2-NIR-rojo: la cicatriz aparece en marrón oscuro. A la derecha, clases de severidad USGS; el contorno negro es la estimación principal.</figcaption>
+    </figure>
+    <div class="caso">
+      <div class="seccion">
+        <h3>Imágenes y condiciones</h3>
+        <dl class="ficha-tec" id="c-ficha"></dl>
+      </div>
+      <div class="seccion">
+        <h3>Cuánto se quemó depende del método</h3>
+        <div class="tabla-caja"><table id="c-areas"><thead><tr><th scope="col">Método</th><th scope="col">Hectáreas</th></tr></thead><tbody></tbody></table></div>
+        <p class="frase" id="c-nota" style="font-size:13.5px;color:var(--ink-2)"></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="texto" aria-label="Uso, método y limitaciones">
+    <div class="seccion">
+      <h3>Para qué sirve en la gestión pública</h3>
+      <ul>
+        <li><strong>El promedio nacional engaña.</strong> Un país «por debajo de lo normal» convive con departamentos en máximo histórico; las alertas y presupuestos de prevención deberían fijarse por departamento y contra su propia línea base.</li>
+        <li><strong>La temporada se desplazó.</strong> El exceso de 2026 está en la sierra y la vertiente del Pacífico y se concentra en octubre: es ahí y entonces donde conviene reforzar brigadas, vigilancia de quemas agrícolas y comunicación de riesgo.</li>
+        <li><strong>La Amazonía no puede bajar la guardia por un buen año.</strong> Un déficit de focos puede reflejar nubes o un año más húmedo, no menos deforestación; sigue haciendo falta verificar en terreno.</li>
+        <li><strong>Las hectáreas deben venir con su método.</strong> Para un mismo incendio la cifra va de cientos a miles de hectáreas según el umbral: cualquier reporte oficial o declaratoria debería indicar fechas, nubes y umbral.</li>
+      </ul>
+    </div>
+    <div class="seccion">
+      <h3>Decisiones de método</h3>
+      <ul>
+        <li><strong>Un solo sensor.</strong> Solo VIIRS S-NPP, el único de 375 m con datos desde 2012; NOAA-20 (2018) y NOAA-21 (2023) inflarían los años recientes.</li>
+        <li><strong>Misma ventana del calendario.</strong> Del 1 de enero al 20 de octubre en todos los años; 2026 aún no termina.</li>
+        <li><strong>Dos fuentes, un sensor.</strong> 2026 sale de INPE (día «NPP-375» + noche «NPP-375D»), porque FIRMS no publica aún el archivo anual. Calibración: <span id="m-cal"></span>.</li>
+        <li><strong>Limpieza uniforme.</strong> Duplicados de la misma pasada a &lt; 100 m, fuentes fijas (volcanes, industrias) con un radio de 500 m y focos fuera de los límites INEI.</li>
+        <li><strong>Récord</strong> = 2026 supera al máximo 2012–2025. Se confirma con tres ventanas y con la energía radiativa (FRP).</li>
+      </ul>
+    </div>
+    <div class="seccion">
+      <h3>Limitaciones</h3>
+      <ul>
+        <li><strong>Un foco de calor no es un incendio.</strong> Es un píxel de 375 m más caliente que su entorno en el paso del satélite: una quema agrícola pequeña y un incendio de miles de hectáreas pueden sumar parecido.</li>
+        <li><strong>Las nubes esconden el fuego.</strong> Un año más nublado registra menos focos sin tener menos fuego, sobre todo en la Amazonía.</li>
+        <li><strong>Pocas observaciones.</strong> El satélite pasa dos veces al día; los fuegos breves entre pasadas no se ven. En departamentos con pocos focos (Callao, Tacna) un par de quemas cambia el ranking.</li>
+        <li><strong>2026 es casi tiempo real.</strong> INPE puede corregir sus datos; la serie 2012–2025 es reprocesada.</li>
+        <li><strong>dNBR en vegetación escasa.</strong> En puna y matorral el NBR previo es bajo y el umbral 0,27 de bosques subestima mucho; un solo caso no representa a todo el departamento.</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer class="pie">
+    <span><b>Fuentes:</b> NASA FIRMS, archivo anual VIIRS S-NPP por país (2012–2025) y NRT 7 días · INPE Programa Queimadas, CSV mensual de Sudamérica (2026) · Copernicus Sentinel-2 L2A vía Microsoft Planetary Computer · límites INEI con UBIGEO (juaneladio/peru-geojson).</span>
+    <span>Herramienta académica independiente: no reemplaza los reportes del COEN, INDECI, SERFOR ni SERNANP. Código reproducible con <span class="mono">uv run python ejecutar_todo.py</span>.</span>
+  </footer>
+</div>
+<div id="tip" hidden></div>
+
+<script>
+const D = /*__DATOS__*/null;
+const ANIOS = D.anios, OBJ = ANIOS[ANIOS.length - 1];
+const NOMBRES = Object.keys(D.deptos);
+let ventana = "ene_corte", medida = "razon", sel = null, orden = { k: "razon", dir: -1 };
+
+// ---------- formato: espacio para miles y coma decimal, como en los informes peruanos ----------
+const fmt = (v, d = 0) => v == null || isNaN(v) ? "—" :
+  Number(v).toFixed(d).replace(/\B(?=(\d{3})+(?!\d))/g, " ").replace(".", ",");
+const pct = v => (v >= 0 ? "+" : "−") + fmt(Math.abs(v), 0) + " %";
+const veces = v => "×" + fmt(v, 2);
+const titulo = n => n.toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase()).replace(/ De /g, " de ");
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const chico = d => D.deptos[d][ventana].prom < 30;
+
+// ---------- color: divergente en log2 de la razón, secuencial para la densidad ----------
+function hex2rgb(h) { h = h.replace("#", ""); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); }
+function mezcla(a, b, t) { const A = hex2rgb(a), B = hex2rgb(b); return "rgb(" + A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(",") + ")"; }
+function rampa(paradas, t) {
+  t = Math.max(0, Math.min(1, t));
+  const n = paradas.length - 1, i = Math.min(n - 1, Math.floor(t * n));
+  return mezcla(paradas[i], paradas[i + 1], t * n - i);
+}
+function colorDe(d) {
+  const e = D.deptos[d][ventana];
+  if (medida === "razon") {
+    const t = (Math.log2(Math.max(0.25, Math.min(4, e.razon || 0.25))) + 2) / 4;
+    return rampa(["--div-n2", "--div-n1", "--div-0", "--div-p1", "--div-p2"].map(css), t);
+  }
+  const max = Math.max(...NOMBRES.map(n => D.deptos[n][ventana].dens));
+  return rampa(["--div-0", "--div-p1", "--div-p2"].map(css), Math.sqrt(e.dens / max));
+}
+
+// ---------- tooltip ----------
+const tip = document.getElementById("tip");
+function mostrar(ev, html) {
+  tip.innerHTML = html; tip.hidden = false;
+  const r = tip.getBoundingClientRect();
+  let x = ev.clientX + 14, y = ev.clientY + 14;
+  if (x + r.width > innerWidth - 8) x = ev.clientX - r.width - 14;
+  if (y + r.height > innerHeight - 8) y = ev.clientY - r.height - 14;
+  tip.style.left = x + "px"; tip.style.top = y + "px";
+}
+const ocultar = () => { tip.hidden = true; };
+
+// ---------- mapa ----------
+const svg = document.getElementById("mapa");
+svg.setAttribute("viewBox", D.viewbox);
+const NS = "http://www.w3.org/2000/svg";
+const capaP = document.createElementNS(NS, "g"), capaT = document.createElementNS(NS, "g");
+svg.append(capaP, capaT);
+const paths = {};
+NOMBRES.forEach(d => {
+  const p = document.createElementNS(NS, "path");
+  p.setAttribute("d", D.deptos[d].path);
+  p.setAttribute("tabindex", "0");
+  p.setAttribute("role", "button");
+  p.addEventListener("click", () => elegir(d));
+  p.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); elegir(d); } });
+  p.addEventListener("mousemove", ev => {
+    const e = D.deptos[d][ventana];
+    mostrar(ev, `<b>${titulo(d)}</b><br>2026: ${fmt(e.serie.at(-1))} focos · ${veces(e.razon)} su promedio<br>puesto ${e.rango} de 15${e.record ? " · récord" : ""}`);
+  });
+  p.addEventListener("mouseleave", ocultar);
+  capaP.append(p); paths[d] = p;
+});
+// rótulos solo para récords y para el departamento elegido: el resto va en la ficha y la tabla
+function pintarMapa() {
+  NOMBRES.forEach(d => {
+    const e = D.deptos[d][ventana], p = paths[d];
+    p.setAttribute("fill", chico(d) ? "url(#rayas)" : colorDe(d));
+    p.classList.toggle("record", e.record && !chico(d));
+    p.classList.toggle("sel", d === sel);
+    p.setAttribute("aria-label", `${titulo(d)}: ${fmt(e.serie.at(-1))} focos en 2026, ${veces(e.razon)} su promedio`);
+  });
+  if (sel) capaP.append(paths[sel]);
+  NOMBRES.filter(d => D.deptos[d][ventana].record && !chico(d)).forEach(d => capaP.append(paths[d]));
+  capaT.innerHTML = "";
+  NOMBRES.filter(d => (D.deptos[d][ventana].record && !chico(d)) || d === sel).forEach(d => {
+    const t = document.createElementNS(NS, "text");
+    t.setAttribute("x", D.deptos[d].c[0]); t.setAttribute("y", D.deptos[d].c[1]);
+    t.setAttribute("text-anchor", "middle");
+    t.textContent = titulo(d) + (D.deptos[d][ventana].record ? " ▲" : "");
+    capaT.append(t);
+  });
+  // leyenda
+  const r = document.getElementById("rampa"), tk = document.getElementById("rampa-ticks");
+  if (medida === "razon") {
+    r.style.background = `linear-gradient(90deg, ${["--div-n2", "--div-n1", "--div-0", "--div-p1", "--div-p2"].map(css).join(",")})`;
+    tk.innerHTML = ["×0,25", "×0,5", "×1 = año típico", "×2", "×4"].map(s => `<span>${s}</span>`).join("");
+  } else {
+    const max = Math.max(...NOMBRES.map(n => D.deptos[n][ventana].dens));
+    r.style.background = `linear-gradient(90deg, ${["--div-0", "--div-p1", "--div-p2"].map(css).join(",")})`;
+    tk.innerHTML = [0, max / 4, max].map((v, i) => `<span>${fmt(v, 0)}${i === 2 ? " focos / 1 000 km²" : ""}</span>`).join("");
+  }
+}
+const defs = document.createElementNS(NS, "defs");
+defs.innerHTML = `<pattern id="rayas" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="var(--div-0)"/><line x1="0" y1="0" x2="0" y2="5" stroke="var(--muted)" stroke-width="1.2"/></pattern>`;
+svg.prepend(defs);
+
+// ---------- ficha del departamento ----------
+function pill(e, d) {
+  if (chico(d)) return `<span class="pill chico">pocas detecciones · leer con cautela</span>`;
+  return e.record ? `<span class="pill rec">récord 2012–2026</span>` : `<span class="pill no">no es récord · puesto ${e.rango} de 15</span>`;
+}
+function ficha(d) {
+  const e = D.deptos[d][ventana], v = e.serie.at(-1);
+  document.getElementById("f-eti").textContent = "Ventana " + D.ventanas[ventana];
+  document.getElementById("f-nombre").textContent = titulo(d);
+  document.getElementById("f-pill").innerHTML = pill(e, d);
+  const dif = 100 * (v / e.prom - 1);
+  const margen = 100 * (v / e.max_previo - 1);
+  document.getElementById("f-frase").innerHTML = e.record
+    ? `En 2026 registró <strong>${fmt(v)} focos</strong>, ${pct(dif)} sobre su promedio y ${pct(margen)} sobre su máximo anterior (${e.anio_max_previo}). Ningún año desde 2012 tuvo tantos en esta ventana.`
+    : `En 2026 registró <strong>${fmt(v)} focos</strong>, ${pct(dif)} frente a su promedio 2012–2025. Su máximo sigue siendo ${e.anio_max_previo} con ${fmt(e.max_previo)}.`;
+  document.getElementById("f-datos").innerHTML = [
+    [fmt(v), "focos 2026"], [fmt(e.prom, 0), "promedio 2012–2025"], [veces(e.razon), "razón vs. promedio"],
+    [fmt(e.max_previo), "máximo previo (" + e.anio_max_previo + ")"], [e.rango + " de 15", "puesto de 2026"],
+    [e.z == null ? "—" : fmt(e.z, 1), "desviaciones (z)"],
+  ].map(([b, s]) => `<div><b class="num">${b}</b><span>${s}</span></div>`).join("");
+  barras(d);
+}
+function barras(d) {
+  const e = D.deptos[d][ventana], s = e.serie, W = 520, H = 230, m = { l: 44, r: 10, t: 22, b: 26 };
+  const g = document.getElementById("barras");
+  const max = Math.max(...s) || 1, paso = niceStep(max);
+  const top = Math.ceil(max / paso) * paso;
+  const x = i => m.l + i * (W - m.l - m.r) / s.length, bw = Math.min(24, (W - m.l - m.r) / s.length - 6);
+  const y = v => m.t + (H - m.t - m.b) * (1 - v / top);
+  let h = "";
+  for (let v = 0; v <= top; v += paso) h += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--rule)" stroke-width="1"/><text x="${m.l - 6}" y="${y(v) + 3.5}" text-anchor="end">${fmt(v)}</text>`;
+  const iMax = s.slice(0, -1).indexOf(e.max_previo);
+  s.forEach((v, i) => {
+    const cx = x(i) + ((W - m.l - m.r) / s.length - bw) / 2, alto = Math.max(0, y(0) - y(v));
+    const col = i === s.length - 1 ? "var(--fire)" : (i === iMax ? "var(--bar-max)" : "var(--bar)");
+    const r = Math.min(4, alto / 2);
+    h += `<path d="M${cx},${y(0)}V${y(v) + r}Q${cx},${y(v)} ${cx + r},${y(v)}H${cx + bw - r}Q${cx + bw},${y(v)} ${cx + bw},${y(v) + r}V${y(0)}Z" fill="${col}"/>`;
+    h += `<rect x="${x(i)}" y="${m.t}" width="${(W - m.l - m.r) / s.length}" height="${H - m.t - m.b}" fill="transparent" data-i="${i}"/>`;
+    if (i % 2 === 0 || i === s.length - 1) h += `<text x="${cx + bw / 2}" y="${H - 8}" text-anchor="middle">${String(ANIOS[i]).slice(2)}</text>`;
+    if (i === s.length - 1 || i === iMax) h += `<text class="lbl" x="${cx + bw / 2}" y="${y(v) - 6}" text-anchor="middle">${fmt(v)}</text>`;
+  });
+  h += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(e.prom)}" y2="${y(e.prom)}" stroke="var(--hist)" stroke-width="1.5"/>`;
+  h += `<text x="${m.l + 4}" y="${y(e.prom) - 5}" style="fill:var(--hist)">promedio 2012–2025</text>`;
+  h += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(0)}" y2="${y(0)}" stroke="var(--bar-max)" stroke-width="1"/>`;
+  g.innerHTML = h;
+  g.setAttribute("aria-label", `Focos por año en ${titulo(d)}, ${D.ventanas[ventana]}`);
+  g.querySelectorAll("rect[data-i]").forEach(r => {
+    r.addEventListener("mousemove", ev => { const i = +r.dataset.i; mostrar(ev, `<b>${ANIOS[i]}</b>: ${fmt(s[i])} focos${i === s.length - 1 ? " (2026)" : ""}`); });
+    r.addEventListener("mouseleave", ocultar);
+  });
+}
+function niceStep(max) { const r = max / 4, p = Math.pow(10, Math.floor(Math.log10(r))); return [1, 2, 2.5, 5, 10].map(k => k * p).find(k => k >= r); }
+
+// ---------- tabla ----------
+function filas() {
+  return NOMBRES.map(d => {
+    const e = D.deptos[d][ventana];
+    return { d, nombre: titulo(d), f26: e.serie.at(-1), prom: e.prom, max: e.max_previo, anio: e.anio_max_previo,
+             razon: e.razon ?? 0, rango: e.rango, rec: e.record, crit: D.sensibilidad[d] ?? 0 };
+  });
+}
+function tabla() {
+  const f = filas().sort((a, b) => (a[orden.k] > b[orden.k] ? 1 : a[orden.k] < b[orden.k] ? -1 : 0) * orden.dir);
+  document.querySelector("#tabla tbody").innerHTML = f.map(r => {
+    const t = Math.log2(Math.max(0.25, Math.min(4, r.razon || 0.25))) / 2; // -1..1
+    const barra = `<span class="mini"><i style="${t >= 0 ? "left:50%" : `left:${50 + t * 50}%`};width:${Math.abs(t) * 50}%;background:${t >= 0 ? "var(--fire)" : "var(--hist)"}"></i></span>`;
+    const marca = chico(r.d) ? `<span class="pill chico">pocos</span>` : (r.rec ? `<span class="pill rec">récord</span>` : "");
+    return `<tr data-d="${r.d}" class="${r.d === sel ? "sel" : ""}" tabindex="0"><td>${r.nombre} ${marca}</td><td>${fmt(r.f26)}</td><td>${fmt(r.prom)}</td><td>${fmt(r.max)} <span style="color:var(--muted)">(${r.anio})</span></td><td>${veces(r.razon)}${barra}</td><td>${r.rango}</td><td>${r.crit} de 4</td></tr>`;
+  }).join("");
+  document.querySelectorAll("#tabla th").forEach(th => th.setAttribute("aria-sort", th.dataset.k === orden.k ? (orden.dir < 0 ? "descending" : "ascending") : "none"));
+  document.querySelectorAll("#tabla tbody tr").forEach(tr => {
+    const ir = () => { elegir(tr.dataset.d); if (innerWidth < 920) document.getElementById("ficha").scrollIntoView({ behavior: "smooth" }); };
+    tr.addEventListener("click", ir);
+    tr.addEventListener("keydown", ev => { if (ev.key === "Enter") ir(); });
+  });
+}
+document.querySelectorAll("#tabla th").forEach(th => th.addEventListener("click", () => {
+  orden = { k: th.dataset.k, dir: orden.k === th.dataset.k ? -orden.dir : (th.dataset.k === "nombre" || th.dataset.k === "rango" ? 1 : -1) };
+  tabla();
+}));
+
+// ---------- cabecera, cifras y hallazgos (todo desde los datos) ----------
+function textos() {
+  const A = D.nacional.ene_corte, O = D.nacional.oct_corte;
+  const recA = NOMBRES.filter(d => D.deptos[d].ene_corte.record && !(D.deptos[d].ene_corte.prom < 30));
+  const recO = NOMBRES.filter(d => D.deptos[d].oct_corte.record && !(D.deptos[d].oct_corte.prom < 30));
+  const vA = A.serie.at(-1), vO = O.serie.at(-1), c = D.dnbr;
+  const todas = NOMBRES.filter(d => D.sensibilidad[d] === 4).map(titulo);
+  const bajo = NOMBRES.filter(d => D.deptos[d].ene_corte.rango === 15 && !chico(d)).map(titulo);
+  document.getElementById("corte").textContent = D.corte.split("-").reverse().join("/");
+  document.getElementById("generado").textContent = "generado " + D.generado;
+  document.getElementById("lede").innerHTML =
+    `<strong>Para el país en conjunto, no:</strong> del 1 de enero al 20 de octubre el Perú suma ${fmt(vA)} focos, ${veces(vA / A.prom)} su promedio 2012–2025 (puesto ${A.rango} de 15). ` +
+    `<strong>Pero sí donde y cuando importa:</strong> ${todas.join(" y ")} baten su récord en las cuatro medidas, y los primeros 20 días de octubre son los más intensos de la serie en ${recO.length} departamentos.`;
+  const cif = [
+    [fmt(vA), "focos", `Perú, ${D.ventanas.ene_corte}`, `${veces(vA / A.prom)} el promedio · puesto ${A.rango} de 15`, A.rango === 1],
+    [fmt(vO), "focos", `Perú, ${D.ventanas.oct_corte}`, `${veces(vO / O.prom)} el promedio · supera a ${O.anio_max_previo} (${fmt(O.max_previo)})`, O.rango === 1],
+    [recA.length + " · " + recO.length, "", "Departamentos con récord", `${recA.length} en el año a la fecha · ${recO.length} solo en octubre`, null],
+    [fmt(c.estimacion_principal_ha), "ha", `Quemadas en ${c.distrito_principal.split(",")[0]}`, `dNBR ≥ 0,10 · rango ${fmt(Math.min(...Object.values(c.hectareas)))}–${fmt(Math.max(...Object.values(c.hectareas)))} ha según método`, null],
+  ];
+  document.getElementById("cifras").innerHTML = cif.map(([v, u, t, s, r]) =>
+    `<div class="cifra"><span class="eti">${t}</span><span class="valor num">${v} <small>${u}</small></span>${r === null ? "" : `<span class="pill ${r ? "rec" : "no"}">${r ? "récord" : "no es récord"}</span>`}<p>${s}</p></div>`).join("");
+  const top = NOMBRES.filter(d => !chico(d)).sort((a, b) => D.deptos[b].ene_corte.razon - D.deptos[a].ene_corte.razon);
+  const a1 = D.deptos[todas.length ? NOMBRES.find(d => titulo(d) === todas[0]) : top[0]].ene_corte;
+  const H = [
+    [veces(vA / A.prom), `<strong>2026 no es récord nacional.</strong> Con ${fmt(vA)} focos entre el 1 de enero y el 20 de octubre, el Perú queda en el puesto ${A.rango} de 15, lejos de ${A.anio_max_previo} (${fmt(A.max_previo)}). Pesa el déficit amazónico: ${bajo.join(", ")} tienen su cifra más baja desde 2012.`],
+    [pct(100 * (a1.serie.at(-1) / a1.max_previo - 1)), `<strong>${todas.join(" y ")}: récord robusto.</strong> ${todas[0]} suma ${fmt(a1.serie.at(-1))} focos frente a su máximo previo de ${fmt(a1.max_previo)} (${a1.anio_max_previo}), ${fmt(a1.z, 1)} desviaciones sobre su media. El récord se sostiene con las tres ventanas y con la energía radiativa (FRP).`],
+    [fmt(vO), `<strong>Octubre 2026 es el más intenso de la serie.</strong> En sus primeros 20 días hubo ${fmt(vO)} focos, ${veces(vO / O.prom)} el promedio, por encima de ${O.anio_max_previo}. ${recO.length} departamentos, casi todos andinos, marcan récord de octubre.`],
+  ];
+  document.getElementById("hallazgos").innerHTML = H.map(([n, t], i) => `<article class="hallazgo"><span class="eti">Hallazgo ${i + 1}</span><span class="cifra-h num">${n}</span><p>${t}</p></article>`).join("");
+
+  // caso dNBR
+  document.getElementById("c-lugar").textContent = c.distrito_principal + " (" + titulo(c.departamento) + ")";
+  const pre = c.imagen_previa, pos = c.imagen_posterior;
+  document.getElementById("c-ficha").innerHTML = [
+    ["Incendio", `${c.incendio.focos} focos VIIRS, ${c.incendio.inicio} a ${c.incendio.fin}`],
+    ["Centro", `${fmt(c.incendio.lat, 3)}°, ${fmt(c.incendio.lon, 3)}°`],
+    ["Antes", `${pre.fecha} · nubes en la zona ${fmt(pre["nubes_zona_%"], 1)} % (escena ${fmt(pre["nubes_escena_%"], 1)} %)`],
+    ["Escena", `<span class="mono">${pre.escena}</span>`],
+    ["Después", `${pos.fecha} · nubes en la zona ${fmt(pos["nubes_zona_%"], 1)} % (escena ${fmt(pos["nubes_escena_%"], 1)} %)`],
+    ["Escena", `<span class="mono">${pos.escena}</span>`],
+    ["Zona analizada", `${fmt(c.zona_km2, 1)} km² · ${fmt(c["pixeles_validos_%"], 1)} % de píxeles válidos · píxel de 20 m`],
+    ["NBR previo", `mediana ${fmt(c.nbr_previo_mediano_quemado, 2)} en lo quemado: vegetación muy escasa`],
+  ].map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join("");
+  document.querySelector("#c-areas tbody").innerHTML = Object.entries(c.hectareas).map(([k, v]) =>
+    `<tr${k.includes("principal") ? ' style="font-weight:650"' : ""}><td>${k}</td><td>${fmt(v)}</td></tr>`).join("");
+  document.getElementById("c-nota").textContent = "El umbral 0,27 se calibró en bosques. Aquí el NBR previo ya era bajo, así que el dNBR casi no pasa de 0,27 aunque toda la ladera se haya quemado. La estimación principal usa 0,10 y solo cuenta manchas conectadas a un foco VIIRS; RdNBR, que corrige por vegetación escasa, da una cifra mayor.";
+  const cal = D.calibracion.map(r => { const v = r["dif_INPE_vs_FIRMS_%"]; return `${v >= 0 ? "+" : "−"}${fmt(Math.abs(v), 1)} % en ${r.ventana}`; }).join(" y ");
+  document.getElementById("m-cal").textContent = "INPE difiere de FIRMS en " + cal;
+}
+
+// ---------- controles ----------
+const segV = document.getElementById("seg-ventana");
+segV.innerHTML = Object.entries(D.ventanas).map(([k, v]) => `<button type="button" data-v="${k}" aria-pressed="${k === ventana}">${v}</button>`).join("");
+segV.addEventListener("click", ev => { const b = ev.target.closest("button"); if (!b) return; ventana = b.dataset.v; segV.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b)); todo(); });
+const segM = document.getElementById("seg-medida");
+segM.addEventListener("click", ev => { const b = ev.target.closest("button"); if (!b) return; medida = b.dataset.m; segM.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b)); pintarMapa(); });
+
+function elegir(d) { sel = d; pintarMapa(); ficha(d); tabla(); }
+function todo() { pintarMapa(); ficha(sel); tabla(); }
+
+textos();
+sel = NOMBRES.filter(d => D.sensibilidad[d] === 4).sort((a, b) => D.deptos[b].ene_corte.serie.at(-1) - D.deptos[a].ene_corte.serie.at(-1))[0] || NOMBRES[0];
+todo();
+// repintar al cambiar el tema (claro/oscuro)
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", pintarMapa);
+new MutationObserver(pintarMapa).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+</script>

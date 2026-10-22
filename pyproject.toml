@@ -1,0 +1,20 @@
+[project]
+name = "incendios-anio-record"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "charset-normalizer>=3.5.2",
+    "geopandas>=1.2.0",
+    "matplotlib>=3.11.2",
+    "numpy>=2.5.4",
+    "pandas>=3.0.6",
+    "planetary-computer>=1.0.0",
+    "pyarrow>=26.0.0",
+    "pyproj>=3.8.0",
+    "pystac-client>=0.9.1",
+    "rasterio>=1.5.2",
+    "rasterstats>=0.21.0",
+    "requests>=2.34.2",
+    "scikit-learn>=1.9.1",
+    "shapely>=2.2.0",
+]

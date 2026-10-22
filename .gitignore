@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+# Datos crudos: se vuelven a bajar con src/01_descargar.py (~90 MB)
+data/raw/
+outputs/tablero_fragmento.html
