@@ -1,8 +1,9 @@
-"""Paso 7 · Exportar los resultados a un tablero HTML autocontenido.
+"""Paso 7 · Exportación de los resultados a un tablero HTML autocontenido.
 
-Escribe docs/index.html (listo para GitHub Pages: Settings → Pages → carpeta /docs).
-No necesita servidor ni librerías: los datos van incrustados como JSON y el mapa se dibuja
-en SVG a partir de los polígonos INEI simplificados.
+Finalmente, en este paso se genera el archivo docs/index.html, el cual puede publicarse
+directamente en GitHub Pages (Settings → Pages → carpeta /docs). Cabe resaltar que el tablero
+no requiere servidor ni librerías externas, siendo que los datos se incrustan como JSON y el
+mapa se dibuja en SVG a partir de los polígonos simplificados del INEI.
 
 Uso:  uv run python src/07_tablero.py
 """
@@ -27,7 +28,8 @@ def img64(nombre: str) -> str:
 
 
 def svg_paths(deptos: gpd.GeoDataFrame, ancho: float = 520) -> tuple[dict, dict, str]:
-    """Proyección equirectangular con corrección cos(latitud media): basta a esta escala."""
+    """Utiliza una proyección equirectangular con corrección por el coseno de la latitud media,
+    la cual resulta suficiente a esta escala."""
     lon0, lat0, lon1, lat1 = deptos.total_bounds
     k = np.cos(np.radians((lat0 + lat1) / 2))
     escala = ancho / ((lon1 - lon0) * k)
@@ -104,7 +106,8 @@ def main() -> None:
             .replace("__IMG_ANOMALIA__", img64("mapa_anomalia_raster.png"))
             .replace("__IMG_ESTACIONALIDAD__", img64("estacionalidad.png")))
 
-    # GitHub Pages necesita el documento completo; el publicador de artifacts pone el suyo
+    # GitHub Pages requiere el documento HTML completo, mientras que el publicador de artifacts
+    # añade el suyo
     (RAIZ / "outputs" / "tablero_fragmento.html").write_text(html, encoding="utf-8")
     cabeza, cuerpo = html.split("</style>", 1)
     completo = ('<!doctype html>\n<html lang="es">\n<head>\n<meta charset="utf-8">\n'

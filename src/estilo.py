@@ -1,4 +1,5 @@
-"""Colores y estilo de gráficos, en un solo lugar para que todas las figuras se lean igual."""
+"""Colores y estilo de los gráficos, definidos en un solo lugar para que todas las figuras
+mantengan una lectura uniforme."""
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 

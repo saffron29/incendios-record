@@ -1,4 +1,7 @@
-"""Corre todo el análisis en orden: uv run python ejecutar_todo.py"""
+"""Ejecuta en orden los siete pasos del análisis.
+
+Uso:  uv run python ejecutar_todo.py
+"""
 import subprocess
 import sys
 from pathlib import Path

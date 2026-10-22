@@ -1,14 +1,16 @@
-"""Paso 4 · De puntos a raster: ¿DÓNDE, dentro de cada departamento, está el exceso de 2026?
+"""Paso 4 · Conversión de los focos a ráster para identificar dónde se concentra el exceso de 2026.
 
-Una tabla por departamento esconde la geografía interna: un departamento puede batir su
-récord por un solo foco caliente. Se construyen tres rasters de 0,1° (~11 km):
+Debe tenerse presente que una tabla por departamento oculta la geografía interna de cada uno,
+siendo que un departamento podría batir su récord a partir de un único foco caliente. Por
+ello, en este paso se construyen tres rásteres con celdas de 0,1° (alrededor de 11 km):
 
   densidad_2026.tif        focos 2026 por celda (1 ene - corte)
   densidad_base_prom.tif   promedio anual 2012-2025 por celda (misma ventana)
   anomalia_2026.tif        diferencia 2026 − promedio (focos por celda)
 
-y se vuelve de raster a tabla con zonal_stats, igual que en la clase de luces nocturnas,
-para validar que la suma por departamento reproduce el conteo directo de puntos.
+Posteriormente, siguiendo lo trabajado en la clase de luces nocturnas, se vuelve del ráster a
+una tabla mediante zonal_stats, con el fin de validar que la suma por departamento reproduce
+el conteo directo de puntos.
 
 Uso:  uv run python src/04_raster_densidad.py
 """
@@ -65,7 +67,8 @@ def main() -> None:
     deptos = deptos.rename(columns={"NOMBDEP": "departamento"}).to_crs(4326)
 
     transform, alto, ancho = grilla()
-    # máscara: celdas cuyo centro cae en el Perú; el resto queda como nodata
+    # Máscara: se consideran las celdas cuyo centro cae dentro del Perú, mientras que el resto
+    # queda como nodata
     peru = rasterize(((g, 1) for g in deptos.geometry), out_shape=(alto, ancho),
                      transform=transform, fill=0, dtype="uint8").astype(bool)
 
@@ -83,8 +86,9 @@ def main() -> None:
         salidas[nombre] = ruta
     print(f"rasters de {alto} × {ancho} celdas de {RES}° guardados en data/processed/")
 
-    # raster -> tabla (zonal_stats), con nodata explícito y all_touched=False:
-    # con all_touched=True una celda de borde se sumaría a DOS departamentos.
+    # Ráster -> tabla (zonal_stats), declarando el nodata de forma explícita y con
+    # all_touched=False, ya que con all_touched=True una celda de borde se sumaría a dos
+    # departamentos a la vez.
     zs = pd.DataFrame({
         "departamento": deptos["departamento"],
         "zonal_2026": [z["sum"] for z in zonal_stats(deptos, str(salidas["densidad_2026"]),

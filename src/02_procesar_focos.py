@@ -1,17 +1,26 @@
-"""Paso 2 · De CSV crudos a una sola tabla limpia de focos 2012-2026 con su departamento.
+"""Paso 2 · Integración y limpieza de los focos de calor 2012-2026.
 
-Decisiones de método (todas se aplican igual a los 15 años):
-  1. Un solo sensor: VIIRS S-NPP (375 m).
-  2. Fuera fuentes fijas: se arma una máscara de 500 m alrededor de todo foco que
-     FIRMS clasificó como volcán activo (type=1) u otra fuente estática (type=2:
-     industrias, quema de gas) en 2012-2025, y se descarta TODO foco que caiga dentro,
-     sin importar el año. Así 2026 (INPE no trae «type») recibe el mismo filtro.
-  3. Solo focos dentro de un departamento del Perú (límites INEI): se van los del mar
-     y los de países vecinos que entran en el rectángulo de descarga.
-  4. Fuera duplicados: dos focos de la MISMA pasada (misma hora) a menos de 100 m son
-     una sola detección. El CSV casi-en-tiempo-real de INPE 2026 trae ~6 % de estos
-     duplicados, contra ~1 % en el archivo histórico de FIRMS (ver bitácora).
-  5. La fecha es la de adquisición en UTC, igual para FIRMS e INPE.
+En este paso se integran los CSV descargados en una sola tabla de focos para el periodo
+2012-2026, a la vez que se asigna a cada foco el departamento en el que se ubica. Debe tenerse
+presente que, para que la comparación entre años sea válida, todas las decisiones de limpieza
+se aplican de la misma forma a los quince años de la serie:
+
+  1. Se utiliza un solo sensor, VIIRS a bordo de Suomi-NPP (375 m).
+  2. Se eliminan los duplicados, entendidos como dos focos de la misma pasada (misma hora)
+     ubicados a menos de 100 m entre sí. En ese sentido, se observó que el CSV casi en tiempo
+     real de INPE 2026 contiene alrededor de 6 % de estos duplicados, frente a cerca de 1 %
+     en el archivo histórico de FIRMS (ver la bitácora de limpieza).
+  3. Se eliminan las fuentes fijas. Para ello, se construye una máscara de 500 m alrededor de
+     todo foco que FIRMS clasificó como volcán activo (type=1) u otra fuente estática
+     (type=2, como industrias o quema de gas) entre 2012 y 2025, y se descarta todo foco que
+     caiga dentro de ella, sin importar el año. Así, 2026, cuyos datos de INPE no incluyen el
+     campo «type», recibe el mismo filtro.
+  4. Se conservan únicamente los focos ubicados dentro de algún departamento del Perú según
+     los límites del INEI, por lo que se excluyen aquellos situados en el mar o en los países
+     vecinos que entran en el rectángulo de descarga.
+  5. Se utiliza como fecha la de adquisición en UTC, tanto para FIRMS como para INPE.
+
+Finalmente, se calibra INPE frente a FIRMS en los periodos en que ambas fuentes se traslapan.
 
 Uso:  uv run python src/02_procesar_focos.py
 """
@@ -74,9 +83,10 @@ def mascara_fuentes_fijas(firms: pd.DataFrame) -> gpd.GeoDataFrame:
 
 
 def deduplicar(df: pd.DataFrame) -> pd.DataFrame:
-    """Quita focos de la misma pasada a < 100 m de otro ya conservado.
-    El tiempo se pasa a una tercera coordenada enorme para que pasadas distintas
-    nunca queden 'cerca' entre sí en el árbol de búsqueda."""
+    """Elimina los focos de una misma pasada que se encuentran a menos de 100 m de otro foco ya
+    conservado. Para ello, el tiempo se incorpora como una tercera coordenada de gran magnitud,
+    de modo que los focos de pasadas distintas nunca queden «cerca» entre sí en el árbol de
+    búsqueda."""
     df = df.reset_index(drop=True)
     x = np.radians(df["lon"].values) * 6_371_000 * np.cos(np.radians(df["lat"].values))
     y = np.radians(df["lat"].values) * 6_371_000
@@ -130,7 +140,7 @@ def main() -> None:
     focos["anio"] = focos["fecha"].dt.year
     focos["mes"] = focos["fecha"].dt.month
     focos["dia"] = focos["fecha"].dt.day
-    # Por si acaso: INPE de un mes no debe traer otro año
+    # Se verifica que los archivos mensuales de INPE no incluyan focos de otros años
     focos = focos[(focos["anio"] >= 2012) & (focos["anio"] <= 2026)]
 
     bit = pd.DataFrame(bitacora).T
@@ -146,8 +156,9 @@ def main() -> None:
 
 
 def calibrar(deptos: gpd.GeoDataFrame, mascara: gpd.GeoDataFrame) -> None:
-    """¿INPE y FIRMS cuentan lo mismo? Se comparan en dos ventanas en que ambos existen:
-    septiembre 2025 (archivo FIRMS vs INPE) y los últimos días (FIRMS NRT 7d vs INPE)."""
+    """Verifica si INPE y FIRMS registran lo mismo. Para ello, se comparan ambas fuentes en los
+    dos periodos en que se traslapan: septiembre de 2025 (archivo FIRMS frente a INPE) y los
+    últimos días disponibles (FIRMS NRT de siete días frente a INPE)."""
     filas = []
 
     # (a) septiembre de 2025
@@ -162,11 +173,12 @@ def calibrar(deptos: gpd.GeoDataFrame, mascara: gpd.GeoDataFrame) -> None:
     nrt = normalizar_firms(pd.read_csv(RAW / "firms" / "SUOMI_VIIRS_C2_South_America_7d.csv"),
                            fuente="FIRMS NRT")
     ioct = leer_inpe(["202610"])
-    # solo días completos presentes en ambas fuentes
+    # Se consideran solo los días completos presentes en ambas fuentes
     dias = sorted(set(nrt["fecha"].dt.normalize()) & set(ioct["fecha"]))
     dias = dias[1:-1]  # el primero y el último del archivo 7d suelen estar incompletos
     if not dias:
-        # el archivo 7d es móvil: corrido después de octubre ya no se traslapa con INPE
+        # Considerando que el archivo de siete días es móvil, si se ejecuta después de octubre ya
+        # no se traslapa con INPE
         print("\nFIRMS NRT 7d no se traslapa con INPE oct-2026: se calibra solo con sep-2025 "
               "(la corrida original dio −0,9 % en 15-19 oct, ver README)")
     for nombre, df in (("FIRMS NRT", nrt), ("INPE", ioct)) if dias else ():

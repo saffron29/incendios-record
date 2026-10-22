@@ -1,15 +1,22 @@
-"""Paso 5 · Del foco al área quemada: dNBR con Sentinel-2 en el incendio más grande del
-departamento con el récord más marcado.
+"""Paso 5 · Estimación del área quemada mediante dNBR con Sentinel-2.
 
-Un foco de calor NO es un incendio ni mide superficie. Para pasar a hectáreas:
-  1. Agrupar focos 2026: focos a ≤ 1 km y ≤ 48 h pertenecen al mismo incendio.
-  2. Tomar el incendio con más focos (ya terminado antes del corte) y su recuadro + 2 km.
-  3. Buscar Sentinel-2 L2A en Planetary Computer y medir las nubes SOBRE LA ZONA con la
-     capa SCL (el % de nubes de la escena entera engaña: es de un cuadro de 110 km).
-  4. Elegir la imagen PREVIA más reciente y la POSTERIOR más temprana con ≤ 10 % de
-     píxeles inválidos en la zona.
-  5. NBR = (NIR − SWIR2) / (NIR + SWIR2) con B8A y B12 (20 m); dNBR = NBR_pre − NBR_post.
-  6. Clases de severidad USGS (Key y Benson, 2006); hectáreas por clase y por distrito.
+Debe tenerse presente que un foco de calor no constituye un incendio ni permite medir
+superficie. Por ello, para estimar las hectáreas quemadas se seleccionó el incendio más grande
+del departamento con récord y mayor número de focos, y se siguieron los siguientes pasos:
+
+  1. Se agrupan los focos de 2026, considerando que aquellos ubicados a ≤ 1 km y ≤ 48 h
+     entre sí pertenecen al mismo incendio.
+  2. Se toma el incendio con más focos, ya terminado antes del corte, y su recuadro con un
+     margen de 2 km.
+  3. Se buscan imágenes Sentinel-2 L2A en Planetary Computer y se miden las nubes sobre la
+     zona del incendio con la capa SCL, ya que el porcentaje de nubes de la escena completa
+     podría ser engañoso al referirse a un cuadro de 110 km.
+  4. Se elige la imagen previa más reciente y la posterior más temprana con ≤ 10 % de
+     píxeles inválidos en la zona, priorizando que ambas sean de la misma órbita relativa.
+  5. Se calcula NBR = (NIR − SWIR2) / (NIR + SWIR2) con las bandas B8A y B12 (20 m), y a
+     partir de ello dNBR = NBR_pre − NBR_post.
+  6. Se clasifican los píxeles según las clases de severidad del USGS (Key y Benson, 2006) y
+     se calculan las hectáreas por clase y por distrito.
 
 Uso:  uv run python src/05_dnbr_caso.py  [--departamento CUSCO]
 """
@@ -42,9 +49,11 @@ SCL_INVALIDO = {0, 1, 3, 8, 9, 10, 11}   # sin dato, saturado, sombra, nubes, ci
 SCL_AGUA = 6
 CORTES_DNBR = [-np.inf, -0.25, -0.10, 0.10, 0.27, 0.44, 0.66, np.inf]
 CLASES = list(SEVERIDAD)          # mismo orden que los cortes
-# Umbral principal 0,10 (límite inferior de «severidad baja» USGS). El 0,27 se calibró en
-# bosques: en puna y matorral el NBR previo ya es bajo y el dNBR no llega a 0,27 aunque todo
-# se queme (ver la figura). Se reportan ambos, más RdNBR, como sensibilidad.
+# Se optó por un umbral principal de 0,10, que corresponde al límite inferior de la «severidad
+# baja» del USGS. Si bien en la lámina de Curahuasi se utilizó 0,27, este umbral fue calibrado
+# en bosques, mientras que en la puna y el matorral el NBR previo ya es bajo, por lo que el
+# dNBR no llegaría a 0,27 aunque toda la zona se queme (ver la figura). En ese sentido, se
+# reportan ambos umbrales, junto con el RdNBR, como análisis de sensibilidad.
 UMBRAL_QUEMADO = 0.10
 UMBRAL_CONSERVADOR = 0.27
 UMBRAL_RDNBR = 69                 # Miller y Thode (2007): «baja» desde 69
@@ -59,13 +68,16 @@ def elegir_departamento() -> str:
         return sys.argv[sys.argv.index("--departamento") + 1].upper()
     rec = pd.read_csv(TAB / "record_departamentos_ene_corte.csv")
     rec = rec[rec["es_record"]].sort_values("focos_2026", ascending=False)
-    # entre los departamentos con récord, el de más focos: tiene incendios grandes que medir
+    # Entre los departamentos con récord se elige el de más focos, ya que tendría incendios de
+    # mayor tamaño que medir
     return rec.iloc[0]["departamento"]
 
 
 def agrupar_incendios(f: pd.DataFrame) -> pd.DataFrame:
-    """≤ 1 km y ≤ 48 h = mismo incendio. Con métrica de Chebyshev sobre (x km, y km, días/2)
-    y eps = 1, dos focos se enlazan si |dx| ≤ 1 km, |dy| ≤ 1 km y |dt| ≤ 2 días."""
+    """Agrupa los focos en incendios, considerando que los focos a ≤ 1 km y ≤ 48 h entre sí
+    pertenecen al mismo incendio. Para ello, se utiliza la métrica de Chebyshev sobre
+    (x km, y km, días/2) con eps = 1, de modo que dos focos se enlazan si |dx| ≤ 1 km,
+    |dy| ≤ 1 km y |dt| ≤ 2 días."""
     g = gpd.GeoDataFrame(f, geometry=gpd.points_from_xy(f.lon, f.lat), crs=4326).to_crs(32718)
     t = (f["fecha"] - f["fecha"].min()).dt.days.values
     X = np.column_stack([g.geometry.x / 1000, g.geometry.y / 1000, t / 2])
@@ -90,7 +102,9 @@ def pct_invalidos(item, bounds) -> tuple[float, float]:
 
 
 def reflectancia(dn: np.ndarray, baseline: str) -> np.ndarray:
-    """Desde el baseline 04.00 (ene-2022) los DN traen +1000 de offset."""
+    """Convierte los valores digitales a reflectancia. Cabe resaltar que desde el processing
+    baseline 04.00 (enero de 2022) los valores digitales incluyen un desplazamiento de +1000
+    que debe restarse."""
     x = dn.astype("float32")
     off = 1000 if float(baseline) >= 4.0 else 0
     r = (x - off) / 10000
@@ -108,7 +122,8 @@ def nbr(item, bounds, shape):
 
 
 def falso_color(item, bounds, shape) -> np.ndarray:
-    """SWIR2-NIR-Rojo: lo quemado se ve marrón/rojizo, la vegetación verde."""
+    """Genera la composición en falso color SWIR2-NIR-Rojo, en la que las zonas quemadas se
+    observan en tonos marrones o rojizos y la vegetación en verde."""
     bl = item.properties["s2:processing_baseline"]
     capas = []
     for banda in ("B12", "B8A", "B04"):
@@ -139,7 +154,7 @@ def main() -> None:
     cat = pystac_client.Client.open(STAC, modifier=planetary_computer.sign_inplace)
     corte = pd.Timestamp(ANIO_OBJETIVO, CORTE_MES, CORTE_DIA)
 
-    # se prueba incendio por incendio (de mayor a menor) hasta tener un par de imágenes limpias
+    # Se evalúa cada incendio, de mayor a menor, hasta encontrar un par de imágenes limpias
     for inc_id, inc in resumen.head(6).iterrows():
         pts = f[f["incendio"] == inc_id]
         g = gpd.GeoSeries(gpd.points_from_xy(pts.lon, pts.lat), crs=4326)
@@ -149,12 +164,13 @@ def main() -> None:
         items = list(cat.search(collections=["sentinel-2-l2a"], intersects=mapping(zona_ll),
                                 datetime=f"{inc.inicio - timedelta(days=75):%Y-%m-%d}/"
                                          f"{corte + timedelta(days=1):%Y-%m-%d}").items())
-        # la zona debe caer entera dentro de la parte con datos de la escena
+        # La zona debe ubicarse por completo dentro de la parte con datos de la escena
         items = [it for it in items if shape(it.geometry).contains(zona_ll)]
         if not items:
             print("  sin escenas que cubran toda la zona")
             continue
-        # una sola cuadrícula MGRS para que pre y post coincidan píxel a píxel
+        # Se utiliza una sola cuadrícula MGRS para que las imágenes previa y posterior coincidan
+        # píxel a píxel
         tile = pd.Series([it.properties["s2:mgrs_tile"] for it in items]).mode()[0]
         items = sorted([it for it in items if it.properties["s2:mgrs_tile"] == tile],
                        key=lambda it: it.datetime)
@@ -180,7 +196,8 @@ def main() -> None:
             print("  sin par limpio previa/posterior; siguiente incendio")
             continue
         sel_post = post.iloc[0]
-        # misma órbita relativa = mismo ángulo de visión e iluminación antes y después
+        # Se prioriza la misma órbita relativa, que asegura el mismo ángulo de visión e
+        # iluminación antes y después del incendio
         misma = pre[pre["orbita"] == sel_post["orbita"]]
         sel_pre = (misma if not misma.empty else pre).iloc[-1]
         cand.to_csv(TAB / "dnbr_imagenes_candidatas.csv", index=False)
@@ -215,8 +232,9 @@ def main() -> None:
     ha_clase = pd.Series({CLASES[k]: (clase == k).sum() * PIXEL_HA for k in range(7)},
                          name="hectareas")
 
-    # "sembrado": solo manchas quemadas conectadas (≤ 375 m) a un foco VIIRS del incendio;
-    # así no se cuentan cambios sueltos por sombras, cultivos o ruido lejos del fuego
+    # Estimación «sembrada»: se consideran solo las manchas quemadas conectadas (≤ 375 m) a algún
+    # foco VIIRS del incendio, de modo que no se contabilicen cambios aislados por sombras,
+    # cultivos o ruido lejos del fuego
     pts_utm = gpd.GeoSeries(gpd.points_from_xy(pts.lon, pts.lat), crs=4326).to_crs(crs)
     semilla = rasterize(((p.buffer(375), 1) for p in pts_utm), out_shape=dnbr.shape,
                         transform=tr, fill=0, dtype="uint8").astype(bool)
@@ -226,7 +244,8 @@ def main() -> None:
         ids = np.unique(etiquetas[semilla & mascara])
         return np.isin(etiquetas, ids[ids > 0])
 
-    # RdNBR relativiza el cambio por la vegetación previa: sirve donde había poca biomasa
+    # El RdNBR relativiza el cambio según la vegetación previa, por lo que resulta útil donde
+    # había poca biomasa
     with np.errstate(invalid="ignore", divide="ignore"):
         rdnbr = 1000 * dnbr / np.sqrt(np.maximum(np.abs(nbr_pre), 0.001))
     quemado = validos & (dnbr >= UMBRAL_QUEMADO)

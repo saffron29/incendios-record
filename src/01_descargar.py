@@ -1,17 +1,18 @@
-"""Paso 1 · Descargar los datos públicos (ninguno pide clave ni pago).
+"""Paso 1 · Descarga de los datos públicos utilizados en el análisis.
 
-| Dato                         | Fuente                                         |
-|------------------------------|------------------------------------------------|
-| Focos VIIRS S-NPP 2012-2025  | NASA FIRMS, archivo anual por país (Perú)      |
-| Focos 2026 (ene-oct)         | INPE Queimadas, CSV mensual de Sudamérica      |
-| Focos últimos 7 días         | NASA FIRMS NRT, «South America 7d» (calibrar)  |
-| Límites departamentales      | INEI con UBIGEO, repositorio juaneladio/peru-geojson |
+En este primer paso se descargan las fuentes de información requeridas, ninguna de las cuales
+exige clave de acceso ni pago alguno. En ese sentido, se utilizan los focos VIIRS S-NPP del
+archivo anual por país de NASA FIRMS para el periodo 2012-2025, los CSV mensuales de
+Sudamérica del Programa Queimadas de INPE para 2026, el archivo de los últimos siete días de
+FIRMS (que se emplea únicamente para calibrar ambas fuentes) y los límites departamentales y
+distritales del INEI con UBIGEO, disponibles en el repositorio juaneladio/peru-geojson.
 
-FIRMS todavía no publica el archivo anual de 2026 (devuelve 404), por eso 2026 sale
-de INPE, que reprocesa el mismo sensor. En 03_comparar.py se verifica que ambas
-fuentes cuentan lo mismo en los días en que se traslapan.
+Cabe resaltar que FIRMS todavía no publica el archivo anual de 2026 (la dirección devuelve un
+error 404), razón por la cual se optó por obtener los datos de dicho año a partir de INPE, que
+distribuye la información del mismo sensor. La verificación de que ambas fuentes registran lo
+mismo se realiza en el paso 2 (02_procesar_focos.py).
 
-Uso:  uv run python src/01_descargar.py
+Uso:  uv run python src/01_descargar.py  [--actualizar]
 """
 import csv
 import io
@@ -28,12 +29,14 @@ INPE_MENSUAL = ("https://dataserver-coids.inpe.br/queimadas/queimadas/focos/csv/
                 "America_Sul/focos_mensal_{ym}.csv")
 GEOJSON = "https://raw.githubusercontent.com/juaneladio/peru-geojson/master/{n}"
 
-# 2026 completo hasta octubre + septiembre 2025 para calibrar INPE contra FIRMS
+# Se descargan los meses de 2026 hasta octubre, así como septiembre de 2025, que se utiliza
+# para calibrar INPE frente a FIRMS
 MESES_INPE = [f"2026{m:02d}" for m in range(1, 11)] + ["202509"]
 
 
 def bajar(url: str, destino, forzar: bool = False) -> None:
-    """Descarga un archivo pequeño o mediano una sola vez (caché en disco)."""
+    """Descarga un archivo una sola vez, de modo que en las siguientes ejecuciones se reutiliza
+    la copia guardada en disco."""
     if destino.exists() and not forzar:
         print(f"  ya existe   {destino.name}")
         return
@@ -49,8 +52,9 @@ def en_bbox(lat: float, lon: float) -> bool:
 
 
 def bajar_inpe_filtrado(ym: str, destino) -> None:
-    """Cada CSV mensual de INPE pesa 100-170 MB (toda Sudamérica, todos los satélites).
-    Se lee en streaming y solo se guardan las filas dentro del rectángulo del Perú."""
+    """Considerando que cada CSV mensual de INPE pesa entre 100 y 170 MB, al abarcar toda
+    Sudamérica y todos los satélites, este se lee en streaming y solo se guardan las filas
+    ubicadas dentro del rectángulo del Perú."""
     if destino.exists():
         print(f"  ya existe   {destino.name}")
         return
@@ -90,7 +94,7 @@ def main() -> None:
 
     print("3/4 INPE Queimadas, CSV mensual Sudamérica (filtrado al Perú)")
     for ym in MESES_INPE:
-        # el mes en curso se vuelve a bajar si se pide --actualizar
+        # El mes en curso se vuelve a descargar solo si se indica la opción --actualizar
         destino = RAW / "inpe" / f"focos_inpe_peru_{ym}.csv"
         if ym == MESES_INPE[-2] and "--actualizar" in sys.argv and destino.exists():
             destino.unlink()

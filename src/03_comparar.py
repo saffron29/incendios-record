@@ -1,15 +1,20 @@
-"""Paso 3 · ¿Es 2026 un año récord? Comparación 2026 vs 2012-2025 por departamento.
+"""Paso 3 · Comparación de 2026 frente a 2012-2025 por departamento.
 
-Unidad de comparación: número de focos VIIRS S-NPP en la MISMA ventana del calendario
-en cada año (1 de enero al día de corte). Se reportan cuatro medidas por departamento:
+Este paso busca responder la pregunta de investigación, es decir, si 2026 constituye un año
+récord de incendios en cada departamento del Perú. Para ello, se utiliza como unidad de
+comparación el número de focos VIIRS S-NPP registrados en la misma ventana del calendario en
+cada año (del 1 de enero al día de corte), considerando que 2026 aún no termina y que
+compararlo con años completos lo subestimaría. A partir de ello, se reportan cuatro medidas
+por departamento:
 
   rango      posición de 2026 entre los 15 años (1 = el más alto de la serie)
   razón      focos 2026 / promedio 2012-2025   (1,0 = un año típico)
   z          (2026 − promedio) / desviación estándar 2012-2025
-  récord     2026 supera al máximo previo, y por cuánto
+  récord     si 2026 supera al máximo previo, y por cuánto
 
-Sensibilidad: se repite con otras dos ventanas (temporada jul–oct y solo octubre) y
-con la energía radiativa (FRP), para ver si la conclusión depende de la elección.
+Asimismo, con el fin de verificar si la conclusión depende de las decisiones adoptadas, el
+análisis se repite con otras dos ventanas (la temporada de julio a octubre y solo octubre) y
+con la energía radiativa del fuego (FRP).
 
 Uso:  uv run python src/03_comparar.py
 """
@@ -35,7 +40,8 @@ def en_ventana(df: pd.DataFrame, inicio: tuple, fin: tuple) -> pd.Series:
 
 
 def panel_anual(focos: pd.DataFrame, deptos: list[str], valor: str = "n") -> pd.DataFrame:
-    """Tabla departamento × año (todos los departamentos y años, ceros incluidos)."""
+    """Construye la tabla departamento × año, incluyendo todos los departamentos y años aun
+    cuando no registren focos."""
     if valor == "n":
         t = focos.groupby(["departamento", "anio"]).size()
     else:
@@ -56,11 +62,13 @@ def resumen_record(panel: pd.DataFrame) -> pd.DataFrame:
     r["razon_vs_prom"] = obj / r["prom_2012_2025"].replace(0, np.nan)
     r["cambio_vs_prom_%"] = 100 * (r["razon_vs_prom"] - 1)
     r["z"] = (obj - r["prom_2012_2025"]) / base.std(axis=1, ddof=1).replace(0, np.nan)
-    # rango: 1 = el año más alto entre 2012 y 2026; empates cuentan a favor del pasado
+    # Rango: 1 corresponde al año más alto entre 2012 y 2026; en caso de empate se favorece a
+    # los años previos
     r["rango_2026"] = (panel.gt(obj, axis=0)).sum(axis=1) + 1
     r["es_record"] = obj > r["max_previo"]
     r["margen_vs_record_%"] = 100 * (obj / r["max_previo"].replace(0, np.nan) - 1)
-    # con menos de 30 focos al año, un par de quemas cambia el ranking: leer con cautela
+    # Con menos de 30 focos al año, un par de quemas podría alterar el ranking, por lo que estos
+    # casos deben leerse con cautela
     r["muestra_pequena"] = r["prom_2012_2025"] < MUESTRA_MINIMA
     return r
 
@@ -69,7 +77,7 @@ def main() -> None:
     focos = pd.read_parquet(PROC / "focos_2012_2026.parquet")
     deptos_gdf = gpd.read_file(RAW / "limites" / "peru_departamental_simple.geojson")
     deptos_gdf = deptos_gdf.rename(columns={"NOMBDEP": "departamento", "FIRST_IDDP": "ubigeo"})
-    # áreas en un CRS métrico, nunca en grados (EPSG:4326)
+    # Las áreas se calculan en un CRS métrico y no en grados (EPSG:4326)
     deptos_gdf["area_km2"] = deptos_gdf.to_crs(CRS_METRICO).geometry.area / 1e6
     deptos = sorted(deptos_gdf["departamento"])
     area = deptos_gdf.set_index("departamento")["area_km2"]
@@ -99,7 +107,8 @@ def main() -> None:
                 "razon_vs_prom", "z", "rango_2026", "es_record"]
         print(res[cols].round(2).to_string())
 
-    # Medida alternativa: energía radiativa del fuego (FRP, MW) en la ventana principal
+    # Como medida alternativa se utiliza la energía radiativa del fuego (FRP, MW) en la ventana
+    # principal
     ini, fin = VENTANAS["ene_corte"]
     sub = focos[en_ventana(focos, ini, fin)]
     panel_frp = panel_anual(sub, deptos, valor="frp")
@@ -110,7 +119,8 @@ def main() -> None:
     print(res_frp[["focos_2026", "prom_2012_2025", "razon_vs_prom", "rango_2026", "es_record"]]
           .round(2).to_string())
 
-    # Tabla de sensibilidad: ¿el veredicto de récord cambia con la ventana o la medida?
+    # Tabla de sensibilidad: permite verificar si el veredicto de récord cambia según la ventana
+    # o la medida utilizada
     sens = pd.DataFrame({
         f"record_{n}": salidas[n][1]["es_record"] for n in VENTANAS
     })
@@ -122,8 +132,8 @@ def main() -> None:
     sens.to_csv(TAB / "sensibilidad_record.csv")
     print("\n=== Sensibilidad del veredicto ===\n", sens.to_string())
 
-    # Serie mensual nacional (para el gráfico de estacionalidad)
-    # 2026 solo hasta el corte: el día en curso viene incompleto
+    # Serie mensual nacional para el gráfico de estacionalidad. En el caso de 2026 se considera
+    # solo hasta la fecha de corte, ya que el día en curso se encuentra incompleto
     pasado_corte = ((focos["anio"] == ANIO_OBJETIVO)
                     & (focos["mes"] * 100 + focos["dia"] > CORTE_MES * 100 + CORTE_DIA))
     mensual = (focos[~pasado_corte].groupby(["anio", "mes"]).size().unstack("mes")

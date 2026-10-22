@@ -1,9 +1,13 @@
-"""Paso 6 · Figuras estáticas para el README (el tablero usa los mismos datos).
+"""Paso 6 · Elaboración de las figuras estáticas del README.
 
-  mapa_record.png          coroplético: razón 2026 / promedio 2012-2025, récords marcados
-  serie_nacional.png       focos del Perú 1 ene - corte, 2012-2026
+En este paso se elaboran las figuras que acompañan al README, las cuales se construyen a
+partir de las mismas tablas que utiliza el tablero interactivo:
+
+  mapa_record.png          mapa coroplético de la razón 2026 / promedio 2012-2025,
+                           con los récords marcados
+  serie_nacional.png       focos del Perú entre el 1 de enero y el corte, 2012-2026
   franja_departamentos.png cada año de cada departamento frente a su propio promedio
-  estacionalidad.png       focos por mes: 2026 frente al rango histórico
+  estacionalidad.png       focos por mes de 2026 frente al rango histórico
 
 Uso:  uv run python src/06_figuras.py
 """
@@ -39,7 +43,8 @@ def mapa_record(rec: pd.DataFrame) -> None:
     deptos = deptos.rename(columns={"NOMBDEP": "departamento"}).merge(
         rec, left_on="departamento", right_index=True)
     fig, ax = plt.subplots(figsize=(7.2, 9))
-    # escala logarítmica centrada en 1: el doble (×2) y la mitad (×0,5) pesan lo mismo
+    # Se utiliza una escala logarítmica centrada en 1, de modo que el doble (×2) y la mitad
+    # (×0,5) tengan el mismo peso visual
     lim = 2.0                                                   # de ×0,25 a ×4
     norma = TwoSlopeNorm(vmin=-lim, vcenter=0, vmax=lim)
     deptos["log2_razon"] = np.log2(deptos["razon_vs_prom"].clip(lower=0.25, upper=4))
@@ -96,8 +101,9 @@ def serie_nacional(panel: pd.DataFrame) -> None:
 
 
 def franja(panel: pd.DataFrame, rec: pd.DataFrame) -> None:
-    """Cada punto gris es un año 2012-2025; el rojo es 2026. Todo en múltiplos del promedio
-    propio del departamento, para comparar departamentos de tamaños muy distintos."""
+    """Cada punto gris corresponde a un año entre 2012 y 2025, mientras que el rojo corresponde
+    a 2026. Todos los valores se expresan como múltiplos del promedio propio de cada
+    departamento, lo cual permite comparar departamentos de tamaños muy distintos."""
     rec = rec[~rec["muestra_pequena"]]
     orden = rec.sort_values("razon_vs_prom").index
     idx = panel.div(panel[ANIOS_BASE].mean(axis=1), axis=0).loc[orden]
