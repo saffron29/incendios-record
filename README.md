@@ -169,8 +169,8 @@ Bitácora de limpieza (`outputs/tablas/bitacora_limpieza.csv`):
 Requisitos: [uv](https://docs.astral.sh/uv/) y Python ≥ 3.12. Todo corre en CPU.
 
 ```bash
-git clone https://github.com/<usuario>/incendios-anio-record.git
-cd incendios-anio-record
+git clone https://github.com/<usuario>/incendios-record.git
+cd incendios-record
 uv sync
 uv run python ejecutar_todo.py          # los 7 pasos en orden (~10 min con la descarga)
 ```
@@ -183,14 +183,14 @@ O paso a paso: `uv run python src/01_descargar.py`, luego `02_…` hasta `07_tab
 
 **Windows:** clone el repositorio en una ruta corta (por ejemplo `Documents\GitHub`). En carpetas muy profundas, Windows no carga las DLL de `shapely` (límite de 260 caracteres en la ruta).
 
-**Tablero en GitHub Pages:** *Settings → Pages → Branch `main`, carpeta `/docs`*. Quedará en `https://<usuario>.github.io/incendios-anio-record/`.
+**Tablero en GitHub Pages:** *Settings → Pages → Branch `main`, carpeta `/docs`*. Quedará en `https://<usuario>.github.io/incendios-record/`.
 
 Los datos crudos (`data/raw/`, ~90 MB) no se suben: los regenera el paso 1. Sí se incluye `data/processed/focos_2012_2026.parquet` (los focos ya limpios), para correr del paso 3 en adelante sin descargar nada.
 
 ## Estructura
 
 ```
-incendios-anio-record/
+incendios-record/
 ├── ejecutar_todo.py            corre los 7 pasos
 ├── src/
 │   ├── config.py               años, fecha de corte, sensor, CRS: las decisiones en un solo lugar

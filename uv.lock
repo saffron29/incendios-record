@@ -383,7 +383,7 @@ wheels = [
 ]
 
 [[package]]
-name = "incendios-anio-record"
+name = "incendios-record"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
